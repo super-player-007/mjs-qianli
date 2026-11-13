@@ -1,0 +1,32 @@
+# 推送前脱敏扫描规则（由 tools/scan_sensitive.py 读取）
+# ---------------------------------------------------------------------------
+# 私有词（如你的游戏昵称、真实姓名）不要写在本文件——本文件会入库。
+# 写到 tools/privacy_rules.local.yml（已被 .gitignore 排除），扫描时会自动合并。
+# 允许例外写到 tools/privacy_allowlist.txt（格式见该文件注释）。
+# ---------------------------------------------------------------------------
+
+# 1) 禁止入库的目录（相对仓库根，前缀匹配）
+forbidden_paths:
+  - ".workbuddy/"
+  - ".venv/"
+  - "bin/"
+  - "runtime/"
+  - "未加密版/"
+  - "_deprecated/"
+
+# 2) 禁止入库的二进制类型（tools/vendor 下的第三方工具请显式说明用途后再放行）
+forbidden_exts:
+  - ".exe"
+  - ".so"
+  - ".dll"
+  - ".onnx"
+  - ".pyc"
+  - ".db"
+  - ".sqlite"
+  - ".log"
+
+# 3) 个人信息关键词（命中即报错；测试截图里出现也必须打码后重扫）
+personal_keywords: []
+
+# 4) 单文件体积上限（MB）。GitHub 超过 50MB 会警告、100MB 直接拒绝
+max_file_mb: 50
