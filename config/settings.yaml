@@ -1,0 +1,81 @@
+# ===========================================================================
+# 名将杀 · 千里走单骑 自动化脚本 — 全局配置
+# 修改本文件后无需改代码即可调整行为。
+# ===========================================================================
+
+# --------------------------- 设备 / 模拟器 --------------------------------
+device:
+  # adb 可执行文件：写 "adb" 走系统 PATH；也可填模拟器自带 adb 的绝对路径
+  adb_path: "adb"
+  # 目标设备序列号；留空则自动使用第一个在线设备
+  serial: "emulator-5554"
+  # 若 adb devices 无设备，则尝试主动 connect
+  auto_connect: true
+  connect_host: "127.0.0.1:5555"
+  # 单条 adb 命令超时（秒）
+  cmd_timeout: 20
+
+# --------------------------- 分辨率 / 坐标系 ------------------------------
+# 所有 config/coords.yaml 中的坐标都以 base_* 为基准标定，
+# 运行时按 实际分辨率 / base 分辨率 自动等比缩放。
+# 当前雷电实例实测：1920x1080，DPI 280（Android 9）。
+screen:
+  base_width: 1920
+  base_height: 1080
+  base_dpi: 280
+  # 截图是否缩放（保持 1.0 以获得最佳模板匹配精度）
+  capture_scale: 1.0
+
+# --------------------------- 节奏 / 时序控制 ------------------------------
+# 模拟人工操作：所有等待均为区间内随机值，避免机械化的固定节奏。
+timing:
+  tap_delay: [0.08, 0.22]        # 单次点击后随机等待
+  swipe_duration: [0.25, 0.45]   # 滑动持续时间
+  action_interval: [0.35, 0.85]  # 两次决策动作之间的间隔
+  poll_interval: 0.35            # 状态轮询间隔
+  screen_timeout: 10.0           # 等待某个界面出现的最长时间
+  max_idle_rounds: 40            # 连续无变化轮次上限（判定卡死）
+
+# --------------------------- 视觉 / 模板匹配 ------------------------------
+vision:
+  # 模板匹配阈值（TM_CCOEFF_NORMED），低于该值视为未命中
+  template_threshold: 0.86
+  # 多尺度搜索比例，应对轻微渲染差异
+  multi_scale: [0.92, 0.96, 1.0, 1.04, 1.08]
+  # 去重用的 IOU 阈值
+  nms_iou: 0.35
+  # 模板目录
+  template_dir: "assets/templates"
+
+# --------------------------- OCR ------------------------------------------
+ocr:
+  enabled: true
+  engine: rapidocr
+  min_score: 0.5                 # 低于该置信度的文本丢弃
+  # 中文文本常被误识别，启用后处理归一化（去空格/全半角统一）
+  normalize: true
+  # 推理设备（2026-11-12）：auto=有 DirectML 就用 GPU；cpu=只用 CPU；
+  # dml=强制 GPU（初始化失败自动回落 CPU）。GUI 里的「识别设备」优先级更高。
+  device: auto
+
+# --------------------------- 决策介入策略 ---------------------------------
+# 用户要求：遇到无法明确判断的选择时「暂停并提问」，不得臆断。
+decision:
+  # ask    = 全部决策点暂停等待人工选择（默认，最稳）
+  # auto   = 按 config/coords.yaml + policy 中的内置规则自动选择
+  # hybrid = 常规项自动、高风险项（撤退/换将/路线）提问
+  mode: ask
+  ui: cli                        # cli = 终端问答 | dialog = 图形弹窗
+  timeout_sec: 300               # 等待人工答复的超时
+  on_timeout: abort              # abort = 终止 | default = 用推荐项 | retry = 重新提问
+  # 高风险决策类别（hybrid 模式下会提问）
+  high_risk_kinds: ["retreat", "switch_hero", "route_choice"]
+
+# --------------------------- 运行产物 / 归档 ------------------------------
+runtime:
+  base_dir: "runtime"
+  log_dir: "runtime/logs"
+  shot_dir: "runtime/shots"        # 异常/关键节点存档截图
+  decision_dir: "runtime/decisions" # 决策点截图与答复记录
+  # 异常时必须落盘截图，便于事后复盘
+  save_shot_on_error: true

@@ -1,0 +1,177 @@
+- state: refresh_confirm
+  scope: global
+  needs_ocr: true
+  areas:
+  - anchor: refresh_confirm.png
+    rect:
+    - 600
+    - 250
+    - 1350
+    - 450
+    threshold: 0.9
+- state: hero_info
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: hero_info.png
+    rect:
+    - 1500
+    - 150
+    - 1850
+    - 300
+    threshold: 0.9
+- state: map
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: map.png
+    rect:
+    - 1450
+    - 780
+    - 1800
+    - 980
+    threshold: 0.9
+  - anchor: map_1.png
+    rect:
+    - 150
+    - 240
+    - 560
+    - 340
+    threshold: 0.9
+- state: battle_confirm
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: battle_confirm.png
+    rect:
+    - 500
+    - 820
+    - 950
+    - 1010
+    threshold: 0.9
+- state: mulligan
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: mulligan.png
+    rect:
+    - 700
+    - 450
+    - 1250
+    - 600
+    threshold: 0.9
+- state: tip_screen
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: tip_screen.png
+    rect:
+    - 400
+    - 860
+    - 1550
+    - 1000
+    threshold: 0.9
+- state: gift1
+  scope: in_run
+  needs_ocr: true
+  areas:
+  - anchor: gift1.png
+    rect:
+    - 700
+    - 880
+    - 1200
+    - 980
+    threshold: 0.9
+  ocr_region:
+  - 300
+  - 700
+  - 1650
+  - 1000
+- state: settle_confirm
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: settle_confirm.png
+    rect:
+    - 850
+    - 880
+    - 1100
+    - 1010
+    threshold: 0.9
+- state: reward_overlay
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: reward_overlay.png
+    rect:
+    - 700
+    - 240
+    - 1200
+    - 420
+    threshold: 0.9
+- state: run_settle
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: run_settle.png
+    rect:
+    - 700
+    - 860
+    - 1250
+    - 1010
+    threshold: 0.9
+- state: next_preview
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: next_preview.png
+    rect:
+    - 700
+    - 900
+    - 1250
+    - 1010
+    threshold: 0.9
+- state: next_preview
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: next_preview_1.png
+    rect:
+    - 820
+    - 890
+    - 1090
+    - 1010
+    threshold: 0.9
+- state: purchase_confirm
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: purchase_confirm.png
+    rect:
+    - 760
+    - 220
+    - 1200
+    - 360
+    threshold: 0.9
+- state: shop
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: shop.png
+    rect:
+    - 150
+    - 60
+    - 850
+    - 220
+    threshold: 0.9
+- state: battle
+  scope: in_run
+  needs_ocr: false
+  areas:
+  - anchor: battle.png
+    rect:
+    - 1700
+    - 300
+    - 1920
+    - 480
+    threshold: 0.9
