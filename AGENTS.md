@@ -119,3 +119,32 @@
 5. **事件页关键词用白名单不用泛化**：「请选择一项/一种」显式列出；裸「请选择一」
    会误吞战斗选人提示「请选择一**名**其他角色」（2026-09-21 事故）。新事件页把
    新的「请选择一X」显式加进 classify。
+
+## 八、发布前脱敏红线（2026-11-13 增补，推送前强制）
+
+**每次 `git push` 前必须跑脱敏扫描，0 命中才允许推送；违反会被 pre-push 钩子直接拦下。**
+
+1. **命令**：`.venv/Scripts/python.exe tools/scan_sensitive.py`
+   - 首次装机执行一次 `.venv/Scripts/python.exe tools/install_git_hooks.py` 安装钩子；
+     钩子同时强制"只允许推送 `refs/heads/main`"。
+   - 公开发布前额外跑 `tools/scan_sensitive.py --history` 扫全历史。
+2. **禁止入库的目录**：`.workbuddy/`（工作笔记）、`bin/`（本机 adb）、`runtime/`
+   （日志/截图）、`未加密版/`、`_deprecated/`、`.venv/`。均已在 `.gitignore`，
+   **禁止用 `git add -f` 绕过**。
+3. **禁止提交的文本**：
+   - 凭据：token、私钥、云 AccessKey、URL 内嵌账号密码（示例也不要用真实值）；
+   - 本机路径：C 盘用户目录下的用户名、/home 或 /Users 下的用户名、雷电模拟器
+     安装目录——文档/配置/脚本一律用 `adb` 或环境变量（`MJS_ADB` / `LDPLAYER_ADB`）；
+   - 个人信息：玩家昵称、UID、手机号、邮箱、真实姓名、联系方式。
+4. **截图与素材**：新增或更新 `tests/fixtures/**`、`assets/templates/**` 前必须人工
+   确认不含玩家昵称/UID/头像；出现昵称必须打码（inpaint）并 OCR 复验"残留=无"再提交。
+   私有关键词**不要**写进 `tools/privacy_rules.yml`（会入库），写到
+   `tools/privacy_rules.local.yml`（已 gitignore，扫描时自动合并）。
+5. **发现问题的处理**：
+   - 未提交 → 删除 / 打码 / 补 `.gitignore`；
+   - 已提交未推送 → 修好后 `git commit --amend`；
+   - 已推送 → 必须改写历史（squash 或 filter-repo）后强推，并删除远端多余分支与标签；
+     **只追加一个"脱敏提交"不算修复**——历史里仍然可见。
+6. **推送纪律**：只推 `main`；禁止 `git push --tags`、`git push --all`、推其它分支。
+7. **例外与测试**：误报放行写 `tools/privacy_allowlist.txt`（注明理由）；扫描器行为由
+   `tests/test_privacy_scan.py` 锁定，改规则要同步补测试。

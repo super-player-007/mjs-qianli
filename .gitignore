@@ -15,6 +15,9 @@ _deprecated/
 # ---- 工作台数据 ----
 .workbuddy/
 
+# ---- 本机私有脱敏配置（不入库：昵称等私有关键词写这里）----
+tools/privacy_rules.local.yml
+
 # ---- Python ----
 __pycache__/
 *.pyc
