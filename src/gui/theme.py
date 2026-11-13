@@ -113,6 +113,13 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
               foreground=[("disabled", "#AAB2C0")])
     style.configure("Ghost.TButton", background=c["bg"], borderwidth=0,
                     foreground=c["muted"], padding=(10, 6))
+    # 卡片内的小号文字按钮（日志工具条的「清屏/导出」）：底色跟卡片一致，
+    # 否则会在白卡上出现一块灰色方块（2026-11-13 截图验收发现）
+    style.configure("CardGhost.TButton", background=c["card"], borderwidth=0,
+                    foreground=c["muted"], font=FONTS["small"], padding=(8, 2))
+    style.map("CardGhost.TButton",
+              background=[("active", "#EEF2F9")],
+              foreground=[("active", c["text"])])
     style.map("Ghost.TButton", background=[("active", "#E9EDF4")])
 
     # 进度条
