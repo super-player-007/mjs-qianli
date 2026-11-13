@@ -90,6 +90,44 @@ def format_metrics(stats: dict) -> List[Tuple[str, str, str]]:
     ]
 
 
+#: 日志过滤档位 → 允许通过的最低级别（顺序即严格程度）
+LOG_FILTERS: Tuple[Tuple[str, str], ...] = (
+    ("全部", "info"),
+    ("警告及以上", "warn"),
+    ("仅错误", "error"),
+)
+_LEVEL_RANK = {"info": 0, "warn": 1, "error": 2}
+
+
+def filter_log_lines(lines: Iterable[str], min_level: str = "info") -> List[str]:
+    """按级别过滤日志行（纯函数，UI 与测试共用）。
+
+    ``min_level`` 取 ``info`` / ``warn`` / ``error``；未知值按 info 处理。
+    """
+    rank = _LEVEL_RANK.get(str(min_level), 0)
+    return [str(line) for line in lines
+            if _LEVEL_RANK.get(line_level(str(line)), 0) >= rank]
+
+
+def parse_names(text: str) -> List[str]:
+    """逗号分隔名单文本 → 名称列表（中英文逗号/顿号/换行/空白都算分隔）。
+
+    与旧实现行为一致：忽略空项、去首尾空格、保持原顺序、不去重
+    （去重由 `src.game.gift` 的裁决规则负责，GUI 不抢它的活）。
+    """
+    out: List[str] = []
+    for chunk in str(text or "").replace("，", ",").replace("、", ",").split(","):
+        name = chunk.strip()
+        if name:
+            out.append(name)
+    return out
+
+
+def join_names(names: Iterable[str]) -> str:
+    """名称列表 → 单行文本（GUI 回显用，统一中文逗号）。"""
+    return "，".join(str(n).strip() for n in names if str(n).strip())
+
+
 # ===================================================================== 控件
 class HeaderBar(tk.Frame):
     """顶部标题 + 状态胶囊。"""
@@ -254,6 +292,7 @@ class LogView(tk.Frame):
         self.text.tag_configure("warn", foreground=COLORS["log_warn"])
         self.text.tag_configure("error", foreground=COLORS["log_error"])
         self.text.tag_configure("hint", foreground="#5B6B85")
+        self.autoscroll: bool = True     # 自动滚动（可关，翻看历史时不被打断）
         self._placeholder = True
         self.text.configure(state="normal")
         self.text.insert("end",
@@ -293,11 +332,24 @@ class LogView(tk.Frame):
         for level, block in group_log_levels(lines):
             self.text.insert("end", block, level)
         self.text.configure(state="disabled")
-        if stick:
+        if stick and self.autoscroll:
             self.text.see("end")
 
     def append_line(self, line: str) -> None:
         self.append_lines([line])
+
+    def set_autoscroll(self, on: bool) -> None:
+        """关闭自动滚动后可安静翻看历史；重新打开时立即吸到底部。"""
+        self.autoscroll = bool(on)
+        if self.autoscroll:
+            self.text.see("end")
+
+    def export_text(self) -> str:
+        """导出当前日志内容（纯文本，供"导出"按钮写文件）。"""
+        try:
+            return self.text.get("1.0", "end-1c")
+        except tk.TclError:
+            return ""
 
     def clear(self) -> None:
         self.text.configure(state="normal")

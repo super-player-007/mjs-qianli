@@ -32,8 +32,11 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from src.gui import config_store
+from src.gui.cards import (NamesBlock, PriorityBlock, SettingRow,
+                            add_row, section)
 from src.gui.theme import COLORS, FONTS, apply_theme, card, enable_dpi_awareness
-from src.gui.widgets import (HeaderBar, LogView, ScrollableColumn,
+from src.gui.widgets import (LOG_FILTERS, HeaderBar, LogView, ScrollableColumn,
+                             filter_log_lines, join_names, parse_names,
                              StatusPanel)
 
 #: 节点优先级可用的 key（事件 key 或类型 key）及其说明
@@ -79,6 +82,7 @@ class ControlApp:
         self.stats = {"clicks": 0, "layer": 0, "run": 0, "runs": 1,
                       "state": "idle", "msg": "", "step_s": 0.0, "steps": 0}
 
+        self._toast_after = None
         self._build_ui()
         self._load_into_widgets()
         self.root.after(POLL_IDLE_MS, self._poll)
@@ -109,115 +113,63 @@ class ControlApp:
 
     # ---------------------------------------------------------- 左：配置区
     def _build_config_panel(self, parent):
+        """卡片式设置（2026-11-13）：一行一个配置、行高固定。
+
+        数据流完全不变——仍是 :meth:`_load_into_widgets` 读配置、
+        :meth:`_collect_config` 收集；这里只负责"怎么摆"。
+        """
+        self.rows = {}
+
         # --- 游戏参数 ---
-        outer, body = card(parent, "游戏参数")
-        outer.pack(fill="x", pady=(0, 10))
+        _outer, body = section(parent, "游戏参数")
+        self.rows["hero"] = SettingRow(
+            body, "hero", "出战武将", "搜索式选将，支持任意武将名", "text")
+        add_row(body, self.rows["hero"])
 
-        row = tk.Frame(body, bg=COLORS["card"])
-        row.pack(fill="x")
-        tk.Label(row, text="出战武将", bg=COLORS["card"], fg=COLORS["muted"],
-                 font=FONTS["small"]).pack(side="left")
-        self.e_hero = ttk.Entry(row, width=16)
-        self.e_hero.pack(side="left", padx=(8, 8))
-        tk.Label(body, text="搜索式选将，支持任意武将名", bg=COLORS["card"],
-                 fg=COLORS["muted"], font=FONTS["small"]).pack(
-                     anchor="w", pady=(3, 0))
-
-        self.cat_texts = {}
+        # --- 武将名单 ---
+        _outer, body = section(parent, "武将名单")
+        self.cat_blocks = {}
         for cat in CATEGORY_ORDER:
-            tk.Label(body, text=f"{cat}武将名单（逗号分隔）", bg=COLORS["card"],
-                     fg=COLORS["muted"], font=FONTS["small"]).pack(
-                         anchor="w", pady=(8, 2))
-            box = tk.Frame(body, bg=COLORS["border"], padx=1, pady=1)
-            box.pack(fill="x")
-            t = tk.Text(box, height=2, width=1, wrap="char", font=FONTS["body"],
-                        bg="#FBFCFE", fg=COLORS["text"], relief="flat",
-                        padx=8, pady=6, insertbackground=COLORS["text"])
-            t.pack(fill="x")
-            self.cat_texts[cat] = t
+            blk = NamesBlock(body, f"{cat}武将（逗号分隔）")
+            blk.pack(fill="x")
+            self.cat_blocks[cat] = blk
 
-        tk.Label(body, text="商店商品名单（逗号分隔）", bg=COLORS["card"],
-                 fg=COLORS["muted"], font=FONTS["small"]).pack(
-                     anchor="w", pady=(8, 2))
-        box = tk.Frame(body, bg=COLORS["border"], padx=1, pady=1)
-        box.pack(fill="x")
-        self.t_shop = tk.Text(box, height=2, width=1, wrap="char", font=FONTS["body"],
-                              bg="#FBFCFE", fg=COLORS["text"], relief="flat",
-                              padx=8, pady=6, insertbackground=COLORS["text"])
-        self.t_shop.pack(fill="x")
+        # --- 商店 ---
+        _outer, body = section(parent, "商店")
+        self.shop_block = NamesBlock(body, "商店商品名单（逗号分隔）")
+        self.shop_block.pack(fill="x")
+        self.rows["shop_reserve"] = SettingRow(
+            body, "shop_reserve", "太平百钱保留线", "武将牌专区余额下限",
+            "number", from_=0, to=99999, increment=10)
+        add_row(body, self.rows["shop_reserve"])
 
         # --- 节点优先级 ---
-        outer, body = card(parent, "节点优先级")
-        outer.pack(fill="both", expand=True, pady=(0, 10))
-        tk.Label(body, text="从上到下，越靠上越优先；不在列表里的类型按规则选最后一个",
-                 bg=COLORS["card"], fg=COLORS["muted"],
-                 font=FONTS["small"]).pack(anchor="w", pady=(0, 6))
-
-        wrap = tk.Frame(body, bg=COLORS["card"])
-        wrap.pack(fill="both", expand=True)
-        listbox_box = tk.Frame(wrap, bg=COLORS["border"], padx=1, pady=1)
-        listbox_box.pack(side="left", fill="both", expand=True)
-        self.lb_priority = tk.Listbox(
-            listbox_box, height=8, width=1, exportselection=False,
-            font=FONTS["body"], bg="#FBFCFE", fg=COLORS["text"],
-            selectbackground=COLORS["accent"], selectforeground="#FFFFFF",
-            relief="flat", highlightthickness=0, activestyle="none",
-            borderwidth=0)
-        self.lb_priority.pack(side="left", fill="both", expand=True)
-
-        btns = tk.Frame(wrap, bg=COLORS["card"])
-        btns.pack(side="left", fill="y", padx=(8, 0))
-        ttk.Button(btns, text="▲ 上移", command=lambda: self._move(-1)).pack(
-            pady=(0, 4), fill="x")
-        ttk.Button(btns, text="▼ 下移", command=lambda: self._move(1)).pack(
-            fill="x")
+        _outer, body = section(parent, "节点优先级", expand=True)
+        self.priority_block = PriorityBlock(
+            body, "从高到低",
+            "越靠上越优先；不在列表里的类型按规则选最后一个")
+        self.priority_block.pack(fill="both", expand=True)
 
         # --- 脚本参数 ---
-        outer, body = card(parent, "脚本参数")
-        outer.pack(fill="x")
-        grid = tk.Frame(body, bg=COLORS["card"])
-        grid.pack(fill="x")
-        grid.columnconfigure(1, weight=1)
-
-        tk.Label(grid, text="点击间隔缩放", bg=COLORS["card"],
-                 fg=COLORS["muted"], font=FONTS["small"]).grid(
-                     row=0, column=0, sticky="w")
-        self.s_scale = ttk.Scale(grid, from_=0.4, to=1.5, orient="horizontal")
-        self.s_scale.grid(row=0, column=1, sticky="we", padx=10)
-        self.l_scale = tk.Label(grid, text="0.70", bg=COLORS["card"],
-                                fg=COLORS["text"], font=FONTS["body"])
-        self.l_scale.grid(row=0, column=2, sticky="e")
-        self.s_scale.bind("<Motion>", lambda e: self.l_scale.config(
-            text=f"{self.s_scale.get():.2f}"))
-
-        tk.Label(grid, text="执行轮次", bg=COLORS["card"], fg=COLORS["muted"],
-                 font=FONTS["small"]).grid(row=1, column=0, sticky="w", pady=(8, 0))
-        self.sp_runs = ttk.Spinbox(grid, from_=1, to=50, width=8)
-        self.sp_runs.grid(row=1, column=1, sticky="w", padx=10, pady=(8, 0))
-
-        tk.Label(grid, text="轮询间隔(秒)", bg=COLORS["card"], fg=COLORS["muted"],
-                 font=FONTS["small"]).grid(row=2, column=0, sticky="w", pady=(8, 0))
-        self.sp_poll = ttk.Spinbox(grid, from_=0.5, to=20, increment=0.5, width=8)
-        self.sp_poll.grid(row=2, column=1, sticky="w", padx=10, pady=(8, 0))
-
-        tk.Label(grid, text="识别设备", bg=COLORS["card"], fg=COLORS["muted"],
-                 font=FONTS["small"]).grid(row=5, column=0, sticky="w", pady=(8, 0))
-        self.cb_device = ttk.Combobox(
-            grid, state="readonly", width=20,
-            values=[label for _, label in DEVICE_CHOICES])
-        self.cb_device.grid(row=5, column=1, columnspan=2, sticky="w",
-                            padx=10, pady=(8, 0))
-        tk.Label(grid, text="GPU 可显著降低 OCR 的 CPU 占用", bg=COLORS["card"],
-                 fg=COLORS["muted"], font=FONTS["small"]).grid(
-                     row=6, column=0, columnspan=3, sticky="w", pady=(2, 0))
-
-        tk.Label(grid, text="百钱保留线", bg=COLORS["card"], fg=COLORS["muted"],
-                 font=FONTS["small"]).grid(row=3, column=0, sticky="w", pady=(8, 0))
-        self.e_reserve = ttk.Entry(grid, width=10)
-        self.e_reserve.grid(row=3, column=1, sticky="w", padx=10, pady=(8, 0))
-        tk.Label(grid, text="武将牌专区余额下限", bg=COLORS["card"],
-                 fg=COLORS["muted"], font=FONTS["small"]).grid(
-                     row=4, column=0, columnspan=3, sticky="w", pady=(2, 0))
+        _outer, body = section(parent, "脚本参数")
+        self.rows["tap_scale"] = SettingRow(
+            body, "tap_scale", "点击间隔缩放", "0.4 更快 / 1.5 更稳", "scale",
+            from_=0.4, to=1.5)
+        add_row(body, self.rows["tap_scale"])
+        self.rows["runs"] = SettingRow(
+            body, "runs", "执行轮次", "", "number",
+            from_=1, to=50, increment=1)
+        add_row(body, self.rows["runs"])
+        self.rows["poll"] = SettingRow(
+            body, "poll", "轮询间隔(秒)", "", "number",
+            from_=0.5, to=20, increment=0.5)
+        add_row(body, self.rows["poll"])
+        self.rows["ocr_device"] = SettingRow(
+            body, "ocr_device", "识别设备", "GPU 可显著降低 OCR 的 CPU 占用",
+            "choice",
+            values=[value for value, _ in DEVICE_CHOICES],
+            labels=[label for _, label in DEVICE_CHOICES])
+        add_row(body, self.rows["ocr_device"])
 
     # ---------------------------------------------------------- 右：状态/日志
     def _build_status_panel(self, parent):
@@ -229,8 +181,54 @@ class ControlApp:
     def _build_log_panel(self, parent):
         outer, body = card(parent, "运行日志")
         outer.pack(fill="both", expand=True)
+
+        # 工具条（2026-11-13）：级别过滤 / 自动滚动 / 清屏 / 导出
+        bar = tk.Frame(body, bg=COLORS["card"])
+        bar.pack(fill="x", pady=(0, 6))
+        tk.Label(bar, text="级别", bg=COLORS["card"], fg=COLORS["muted"],
+                 font=FONTS["small"]).pack(side="left")
+        self.var_log_filter = tk.StringVar(value=LOG_FILTERS[0][0])
+        ttk.Combobox(bar, state="readonly", width=10,
+                     textvariable=self.var_log_filter,
+                     values=[label for label, _ in LOG_FILTERS]).pack(
+                         side="left", padx=(6, 14))
+        self.var_autoscroll = tk.BooleanVar(value=True)
+        # 用 tk.Checkbutton 而不是 ttk：clam 主题的指示器是"✖"字形，看着像报错
+        tk.Checkbutton(bar, text="自动滚动", variable=self.var_autoscroll,
+                       command=self._on_autoscroll, bg=COLORS["card"],
+                       fg=COLORS["text"], activebackground=COLORS["card"],
+                       activeforeground=COLORS["text"], selectcolor="#FFFFFF",
+                       font=FONTS["small"], bd=0,
+                       highlightthickness=0).pack(side="left")
+        ttk.Button(bar, text="导出", style="CardGhost.TButton",
+                   command=self.on_export_log).pack(side="right", pady=2)
+        ttk.Button(bar, text="清屏", style="CardGhost.TButton",
+                   command=self.on_clear_log).pack(side="right", padx=(0, 4),
+                                                  pady=2)
+
         self.logview = LogView(body, max_lines=2000, height=18)
         self.logview.pack(fill="both", expand=True)
+
+    def _on_autoscroll(self) -> None:
+        self.logview.set_autoscroll(bool(self.var_autoscroll.get()))
+
+    def on_clear_log(self) -> None:
+        self.logview.clear()
+        self.toast("日志已清空")
+
+    def on_export_log(self) -> None:
+        from tkinter import filedialog
+        path = filedialog.asksaveasfilename(
+            title="导出运行日志", defaultextension=".txt",
+            initialfile="运行日志.txt", filetypes=[("文本文件", "*.txt")])
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(self.logview.export_text())
+            self.toast(f"日志已导出：{path}")
+        except OSError as exc:
+            messagebox.showerror("导出失败", str(exc))
 
     def _build_footer(self):
         bar = tk.Frame(self.root, bg=COLORS["bg"])
@@ -253,64 +251,65 @@ class ControlApp:
         self.var_thread = tk.StringVar(value="工作线程：未启动")
         tk.Label(bar, textvariable=self.var_thread, bg=COLORS["bg"],
                  fg=COLORS["muted"], font=FONTS["small"]).pack(side="right")
+        # 轻提示（替代一条龙的 InfoBar）：3 秒淡出的状态条右侧文字
+        self.var_toast = tk.StringVar(value="")
+        tk.Label(bar, textvariable=self.var_toast, bg=COLORS["bg"],
+                 fg=COLORS["accent"], font=FONTS["small"]).pack(
+                     side="right", padx=(0, 14))
+
+    def toast(self, msg: str, ms: int = 2600) -> None:
+        """状态条右侧的轻提示（不打断操作，替代弹窗）。"""
+        self.var_toast.set(msg)
+        if self._toast_after is not None:
+            try:
+                self.root.after_cancel(self._toast_after)
+            except tk.TclError:
+                pass
+        self._toast_after = self.root.after(
+            ms, lambda: self.var_toast.set(""))
 
     # ------------------------------------------------------------ 配置
     def _load_into_widgets(self):
         cfg = self.cfg
-        self.e_hero.delete(0, "end")
-        self.e_hero.insert(0, cfg.get("hero", ""))
-        for cat, widget in self.cat_texts.items():
-            widget.delete("1.0", "end")
-            widget.insert("1.0", "，".join(cfg["categories"].get(cat, [])))
-        self.t_shop.delete("1.0", "end")
-        self.t_shop.insert("1.0", "，".join(cfg.get("shop_wanted", [])))
-        self.lb_priority.delete(0, "end")
-        for key in cfg.get("priority", []):
-            self.lb_priority.insert("end", f"{key}  ({CHOICE_LABEL.get(key, '?')})")
-        self.e_reserve.delete(0, "end")
-        self.e_reserve.insert(0, str(cfg.get("shop_reserve", 150)))
-        self.s_scale.set(float(cfg.get("tap_scale", 0.7)))
-        self.l_scale.config(text=f"{self.s_scale.get():.2f}")
-        self.sp_runs.delete(0, "end")
-        self.sp_runs.insert(0, str(int(cfg.get("runs", 1))))
-        self.sp_poll.delete(0, "end")
-        self.sp_poll.insert(0, str(float(cfg.get("poll", 0.5))))
+        self.rows["hero"].set(cfg.get("hero", ""))
+        for cat, blk in self.cat_blocks.items():
+            blk.set(join_names(cfg["categories"].get(cat, [])))
+        self.shop_block.set(join_names(cfg.get("shop_wanted", [])))
+        self.rows["shop_reserve"].set(int(cfg.get("shop_reserve", 150)))
+        self.priority_block.set(
+            [f"{key}  ({CHOICE_LABEL.get(key, '?')})"
+             for key in cfg.get("priority", [])])
+        self.rows["tap_scale"].set(float(cfg.get("tap_scale", 0.7)))
+        self.rows["runs"].set(int(cfg.get("runs", 1)))
+        self.rows["poll"].set(float(cfg.get("poll", 0.5)))
         device = str(cfg.get("ocr_device", "auto") or "auto").lower()
-        self.cb_device.set(DEVICE_LABELS.get(device,
-                                             DEVICE_LABELS["auto"]))
+        self.rows["ocr_device"].set(device)
 
     def _collect_config(self) -> dict:
         cfg = dict(self.cfg)
-        cfg["hero"] = self.e_hero.get().strip() or "钟离眜"
-        cats = {}
-        for cat, widget in self.cat_texts.items():
-            raw = widget.get("1.0", "end")
-            names = [x.strip() for chunk in raw.replace("，", ",").split(",")
-                     for x in [chunk.strip()] if x.strip()]
-            cats[cat] = names
-        cfg["categories"] = cats
-        raw_shop = self.t_shop.get("1.0", "end")
-        cfg["shop_wanted"] = [x.strip()
-                              for chunk in raw_shop.replace("，", ",").split(",")
-                              for x in [chunk.strip()] if x.strip()]
+        cfg["hero"] = str(self.rows["hero"].get()).strip() or "钟离眜"
+        cfg["categories"] = {cat: parse_names(blk.get())
+                             for cat, blk in self.cat_blocks.items()}
+        cfg["shop_wanted"] = parse_names(self.shop_block.get())
         try:
-            cfg["shop_reserve"] = max(0, int(self.e_reserve.get() or 150))
-        except ValueError:
+            cfg["shop_reserve"] = max(
+                0, int(float(self.rows["shop_reserve"].get() or 150)))
+        except (TypeError, ValueError):
             cfg["shop_reserve"] = 150
-        cfg["priority"] = [self.lb_priority.get(i).split()[0]
-                           for i in range(self.lb_priority.size())]
-        cfg["tap_scale"] = round(float(self.s_scale.get()), 2)
-        cfg["runs"] = max(1, int(self.sp_runs.get() or 1))
-        cfg["poll"] = max(0.3, float(self.sp_poll.get() or 0.5))
-        # 识别设备：文案 → 配置值（auto/cpu/dml）
-        cfg["ocr_device"] = DEVICE_BY_LABEL.get(self.cb_device.get(), "auto")
+        cfg["priority"] = [str(item).split()[0]
+                           for item in self.priority_block.get()]
+        cfg["tap_scale"] = round(float(self.rows["tap_scale"].get()), 2)
+        cfg["runs"] = max(1, int(float(self.rows["runs"].get() or 1)))
+        cfg["poll"] = max(0.3, float(self.rows["poll"].get() or 0.5))
+        device = str(self.rows["ocr_device"].get() or "auto").lower()
+        cfg["ocr_device"] = device if device in DEVICE_LABELS else "auto"
         return cfg
 
     def on_save(self):
         cfg = self._collect_config()
         path = config_store.save_config(cfg)
         self._log(f"配置已保存：{path}")
-        messagebox.showinfo("保存配置", f"已保存到 {path}")
+        self.toast(f"已保存：{path}")
 
     def on_load(self):
         self.cfg = config_store.load_config()
@@ -319,17 +318,8 @@ class ControlApp:
 
     # ------------------------------------------------------------ 优先级
     def _move(self, delta: int):
-        sel = self.lb_priority.curselection()
-        if not sel:
-            return
-        i = sel[0]
-        j = i + delta
-        if not (0 <= j < self.lb_priority.size()):
-            return
-        text = self.lb_priority.get(i)
-        self.lb_priority.delete(i)
-        self.lb_priority.insert(j, text)
-        self.lb_priority.selection_set(j)
+        """旧接口保留：委托给卡片式优先级列表（按钮已内置）。"""
+        self.priority_block.move(delta)
 
     # ------------------------------------------------------------ 控制
     def _log(self, line: str):
@@ -444,10 +434,16 @@ class ControlApp:
             self._log("已暂停")
 
     def on_stop(self):
+        if self.worker is not None and self.worker.is_alive():
+            if not messagebox.askyesno(
+                    "确认停止",
+                    "停止后当前这一步完成即退出，确定停止吗？"):
+                return
         self.stop_event.set()
         self.pause_event.clear()
         self._log("停止指令已发出（当前步完成后退出）")
         self.btn_stop.config(state="disabled")
+        self.toast("已发出停止指令")
 
     # ------------------------------------------------------------ 轮询
     def _drain_logs(self) -> None:
@@ -458,7 +454,10 @@ class ControlApp:
             except queue.Empty:
                 break
         if batch:
-            self.logview.append_lines(batch)
+            min_level = dict(LOG_FILTERS).get(self.var_log_filter.get(), "info")
+            shown = filter_log_lines(batch, min_level)
+            if shown:
+                self.logview.append_lines(shown)
 
     def _poll(self):
         self._drain_logs()

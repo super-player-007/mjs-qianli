@@ -10,8 +10,9 @@ import unittest
 
 import numpy as np
 
-from src.gui.widgets import (format_metrics, group_log_levels,
-                             line_level, plan_log_append, STATE_LABELS)
+from src.gui.widgets import (LOG_FILTERS, STATE_LABELS, filter_log_lines,
+                             format_metrics, group_log_levels, join_names,
+                             line_level, parse_names, plan_log_append)
 from src.vision.ocr import OCREngine
 
 
@@ -86,6 +87,59 @@ class TestFormatMetrics(unittest.TestCase):
     def test_runs_never_zero(self):
         m = format_metrics({"run": 1, "runs": 0})
         self.assertEqual(m[0][1], "1/1")
+
+
+class TestLogFilter(unittest.TestCase):
+    """日志级别过滤（2026-11-13 新增日志工具条）。"""
+
+    LINES = ["10:00 [INFO] 正常", "10:01 [WARNING] 注意", "10:02 [ERROR] 崩了"]
+
+    def test_filter_levels(self):
+        self.assertEqual(len(filter_log_lines(self.LINES, "info")), 3)
+        self.assertEqual(len(filter_log_lines(self.LINES, "warn")), 2)
+        self.assertEqual(len(filter_log_lines(self.LINES, "error")), 1)
+
+    def test_unknown_level_defaults_to_info(self):
+        self.assertEqual(len(filter_log_lines(self.LINES, "???")), 3)
+
+    def test_filter_keeps_text_and_order(self):
+        kept = filter_log_lines(self.LINES, "warn")
+        self.assertIn("[WARNING]", kept[0])
+        self.assertIn("[ERROR]", kept[1])
+
+    def test_empty_input(self):
+        self.assertEqual(filter_log_lines([], "error"), [])
+
+    def test_filter_options_are_valid_levels(self):
+        for _label, level in LOG_FILTERS:
+            self.assertIn(level, ("info", "warn", "error"))
+
+
+class TestNameList(unittest.TestCase):
+    """逗号名单解析/回显（GUI 卡片化的纯函数部分）。"""
+
+    def test_parse_chinese_and_ascii_comma(self):
+        self.assertEqual(parse_names("吕布，貂蝉,华雄"),
+                         ["吕布", "貂蝉", "华雄"])
+
+    def test_parse_ignores_blanks(self):
+        self.assertEqual(parse_names(" 吕布 ,, ，貂蝉 , "), ["吕布", "貂蝉"])
+
+    def test_parse_treats_pause_mark_as_separator(self):
+        self.assertEqual(parse_names("吕布、貂蝉"), ["吕布", "貂蝉"])
+
+    def test_parse_keeps_duplicates_for_gift_rules(self):
+        """去重是 gift 裁决规则的职责，GUI 不抢它的活。"""
+        self.assertEqual(parse_names("吕布，吕布"), ["吕布", "吕布"])
+
+    def test_join_roundtrip(self):
+        names = ["吕布", "貂蝉"]
+        self.assertEqual(join_names(names), "吕布，貂蝉")
+        self.assertEqual(parse_names(join_names(names)), names)
+
+    def test_empty(self):
+        self.assertEqual(parse_names(""), [])
+        self.assertEqual(join_names([]), "")
 
 
 class FakeEngine(OCREngine):
