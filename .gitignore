@@ -1,0 +1,28 @@
+# ---- 运行环境 / 构建产物（不入库）----
+.venv/
+bin/            # 本机 adb 等第三方二进制，体积大且非本项目代码
+build_work_plain/
+未加密版/
+dist/
+build/
+
+# ---- 运行时产物（日志/截图/现场）----
+runtime/
+
+# ---- 历史遗留（已废弃方案留档，本地保留）----
+_deprecated/
+
+# ---- 工作台数据 ----
+.workbuddy/
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ---- IDE / 系统 ----
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
