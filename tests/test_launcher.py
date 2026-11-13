@@ -12,7 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "tools" / "launcher" / "启动控制台.cs"
-BUILD = ROOT / "tools" / "build_launcher.bat"
+BUILD = ROOT / "tools" / "build_launcher.py"
+BUILD_BAT = ROOT / "tools" / "build_launcher.bat"
+LAUNCH = ROOT / "tools" / "launch_gui.py"
 EXE = ROOT / "启动控制台.exe"
 BAT = ROOT / "启动控制台.bat"
 
@@ -28,13 +30,32 @@ class TestLauncherWiring(unittest.TestCase):
         self.assertIn("CreateNoWindow", text)
 
     def test_build_script_uses_csc_winexe(self):
-        text = BUILD.read_text(encoding="utf-8", errors="replace")
-        self.assertIn("csc.exe", text.lower())
+        text = BUILD.read_text(encoding="utf-8")
+        self.assertIn("csc", text.lower())
         self.assertIn("/target:winexe", text, "target=winexe 才没有黑窗")
 
-    def test_bat_forwards_to_exe(self):
+    def test_build_avoids_chinese_csc_out_path(self):
+        """csc 在 GBK 代码页下吃不了中文 /out 路径（CS2021 踩坑）。"""
+        text = BUILD.read_text(encoding="utf-8")
+        self.assertNotIn('"/out:' + "启动控制台", text,
+                         "必须输出到 ASCII 临时名再改名")
+
+    def test_bat_calls_python_launch_helper(self):
         text = BAT.read_text(encoding="utf-8", errors="replace")
-        self.assertIn("启动控制台.exe", text)
+        self.assertIn("tools\\launch_gui.py", text.lower())
+        self.assertIn("pythonw.exe", text.lower(), "bat 本身仍会闪一下控制台")
+
+    def test_launch_helper_starts_exe_detached(self):
+        text = LAUNCH.read_text(encoding="utf-8")
+        self.assertIn("DETACHED_PROCESS", text)
+        self.assertIn("build_launcher", text)
+
+    def test_bat_hands_over_without_chinese_path_issues(self):
+        """bat 保持纯 ASCII 内容：cmd 按 GBK 读，中文会碎行/乱码。"""
+        raw = BAT.read_bytes()
+        raw.decode("ascii")          # 断言：不含非 ASCII 字节
+        text = raw.decode("ascii")
+        self.assertIn("tools\\launch_gui.py", text.lower())
 
     def test_exe_is_gui_subsystem_when_present(self):
         """有产物时校验 PE 子系统=2（Windows GUI），否则跳过（新仓库未编译）。"""
