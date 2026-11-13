@@ -15,9 +15,11 @@
 """
 from __future__ import annotations
 
+import glob
 import logging
 import os
 import random
+import shutil
 from pathlib import Path
 from pathlib import Path
 import subprocess
@@ -35,6 +37,34 @@ class DeviceError(RuntimeError):
     """adb 交互失败。"""
 
 
+#: 常见雷电模拟器安装位置（裸名 "adb" 不在 PATH 时的自动回退）
+_KNOWN_ADB_GLOBS = (
+    "D:/leidian/LDPlayer*/adb.exe",
+    "C:/leidian/LDPlayer*/adb.exe",
+    "D:/Program Files/leidian/LDPlayer*/adb.exe",
+    "E:/leidian/LDPlayer*/adb.exe",
+)
+
+
+def resolve_adb_path(configured: str) -> str:
+    """解析 adb 可执行文件（2026-11-14 新版 settings 默认 "adb" 走 PATH）。
+
+    * 显式路径（含路径分隔符）→ 原样返回，不存在时按原逻辑报错；
+    * 裸名（"adb"）→ 先查 PATH；没有再扫常见雷电安装位置；
+    * 都没有 → 原样返回（让首次调用抛出明确的"找不到 adb"）。
+    """
+    if os.path.sep in configured or "/" in configured or "\\" in configured:
+        return configured
+    found = shutil.which(configured)
+    if found:
+        return found
+    for pattern in _KNOWN_ADB_GLOBS:
+        hits = sorted(glob.glob(pattern))
+        if hits:
+            return hits[0]
+    return configured
+
+
 class ADBDevice:
     """一个 ADB 目标设备（此处即雷电模拟器实例）。"""
 
@@ -45,7 +75,7 @@ class ADBDevice:
                  connect_host: str = "127.0.0.1:5555",
                  cmd_timeout: float = 20.0,
                  logger: Optional[logging.Logger] = None) -> None:
-        self.adb_path = adb_path
+        self.adb_path = resolve_adb_path(adb_path)
         self.serial = serial
         self.auto_connect = auto_connect
         self.connect_host = connect_host

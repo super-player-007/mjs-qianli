@@ -12,10 +12,11 @@ from __future__ import annotations
 
 import subprocess
 import time
+import shutil
 import unittest
 from unittest.mock import patch
 
-from src.devices.adb import ADBDevice, DeviceError
+from src.devices.adb import ADBDevice, DeviceError, resolve_adb_path
 
 
 class _Dev(ADBDevice):
@@ -152,3 +153,24 @@ def raw_frame(w=6, h=4):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestResolveAdbPath(unittest.TestCase):
+    """新版 settings 默认 adb_path="adb"（走 PATH）→ 需自动回退雷电位置。"""
+
+    def test_explicit_path_untouched(self):
+        from src.devices.adb import resolve_adb_path
+        self.assertEqual(resolve_adb_path("D:/leidian/LDPlayer9/adb.exe"),
+                         "D:/leidian/LDPlayer9/adb.exe")
+        self.assertEqual(resolve_adb_path("C:/no/such/adb.exe"),
+                         "C:/no/such/adb.exe")
+
+    def test_bare_name_falls_back_to_known_globs(self):
+        import os
+        from src.devices.adb import resolve_adb_path
+        # 本机 PATH 无 adb 时应扫到雷电安装目录；扫不到则原样返回
+        got = resolve_adb_path("adb")
+        if shutil.which("adb"):
+            self.assertTrue(os.path.isabs(got) or got == "adb")
+        else:
+            self.assertNotEqual(got, "adb", "应回退到常见模拟器安装位置")
+            self.assertTrue(os.path.isfile(got), msg=got)
