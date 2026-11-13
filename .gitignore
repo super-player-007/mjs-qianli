@@ -29,3 +29,6 @@ __pycache__/
 .vscode/
 Thumbs.db
 .DS_Store
+
+# 无黑窗启动器：本机编译产物（tools/build_launcher.bat 生成，不入库）
+启动控制台.exe
