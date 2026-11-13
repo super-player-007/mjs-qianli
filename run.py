@@ -473,10 +473,42 @@ def cmd_gift(args: argparse.Namespace) -> int:
 
 
 def cmd_gui(args: argparse.Namespace) -> int:
-    """打开自动化控制台 GUI。"""
-    from src.gui.app import main as gui_main
-    gui_main()
-    return 0
+    """打开自动化控制台 GUI。
+
+    注意（2026-11-13）：默认入口 `启动控制台.vbs` 用 **pythonw.exe** 启动，
+    没有控制台，stdout/stderr 是丢弃的。所以这里的异常必须**落盘 + 弹窗**，
+    否则用户只会看到"双击了没反应"。
+    """
+    try:
+        from src.gui.app import main as gui_main
+        gui_main()
+        return 0
+    except Exception:  # noqa: BLE001 — 兜底：无控制台时也要让用户看见错误
+        import traceback
+        from pathlib import Path
+
+        detail = traceback.format_exc()
+        log_path = Path("runtime/gui_error.log")
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a", encoding="utf-8") as fh:
+                fh.write(detail + "\n")
+        except OSError:
+            log_path = None
+        try:
+            import tkinter as tk
+            from tkinter import messagebox
+
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror(
+                "控制台启动失败",
+                f"{detail.strip().splitlines()[-1]}\n\n"
+                f"完整报错已写入：{log_path}")
+            root.destroy()
+        except Exception:  # noqa: BLE001 — 连弹窗都失败时至少已落盘
+            pass
+        return 1
 
 
 def cmd_auto(args: argparse.Namespace) -> int:
