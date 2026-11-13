@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import queue
+import tempfile
 import unittest
 
 from src.core.logger import setup_logger
@@ -68,11 +70,14 @@ class TestSetupLoggerKeepsBridge(unittest.TestCase):
 
     def test_non_persistent_handlers_cleared(self):
         """无标记的旧 handler（如遗留 FileHandler）重配置时被清掉。"""
-        stale = logging.FileHandler("runtime/_stale.log", encoding="utf-8")
-        self.logger.addHandler(stale)
-        setup_logger("mjs", log_dir=None)
-        self.assertNotIn(stale, self.logger.handlers)
-        stale.close()
+        # 用临时目录：runtime/ 被 gitignore，新克隆的仓库里并不存在
+        with tempfile.TemporaryDirectory() as td:
+            stale = logging.FileHandler(os.path.join(td, "_stale.log"),
+                                        encoding="utf-8")
+            self.logger.addHandler(stale)
+            setup_logger("mjs", log_dir=None)
+            self.assertNotIn(stale, self.logger.handlers)
+            stale.close()
 
 
 if __name__ == "__main__":
