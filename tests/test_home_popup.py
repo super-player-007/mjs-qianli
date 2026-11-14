@@ -38,6 +38,27 @@ class TestHomePopup(unittest.TestCase):
         r = self._runner()
         self.assertEqual(r.classify(_nav_items()), "home_popup")
 
+    def test_map_page_not_home_popup(self):
+        """局内地图页（结束挑战+图例+聊天条公会）→ map 语义，绝不判 home_popup。
+
+        2026-11-15 夜局事故：聊天条给公会、图例给武将、偶发任务 →
+        无排除守卫时地图页被误判 home_popup，在地图上点天空，连 4 步停机。
+        """
+        r = self._runner()
+        items = [_item("结束挑战", 1657, 938), _item("当前挑战：21 层", 200, 200),
+                 _item("武将·", 1475, 400), _item("伙伴", 1293, 500),
+                 _item("【公会招新】", 203, 960)]
+        self.assertNotEqual(r.classify(items), "home_popup")
+
+    def test_entry_page_not_home_popup(self):
+        """入口页（开始挑战）→ 不判 home_popup。"""
+        r = self._runner()
+        items = [_item("S公会", 924, 939), _item("好友", 1107, 937),
+                 _item("武将", 1475, 939), _item("任务", 1657, 938),
+                 _item("开始挑战", 1667, 750), _item("战役属性", 1500, 400),
+                 _item("难度选择", 1353, 937)]
+        self.assertNotEqual(r.classify(items), "home_popup")
+
     def test_clean_home_still_home(self):
         """干净主页（顶部导航在）→ home，不受新规则影响。"""
         r = self._runner()

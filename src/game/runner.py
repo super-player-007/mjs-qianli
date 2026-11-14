@@ -519,11 +519,16 @@ class AutoRunner:
         if _has(items, "丹青阁") and _has(items, "招募"):
             # 游戏主页（顶部导航 OCR conf=1.00；卡片艺术字不可靠不用）
             return "home"
-        if (_has(items, "公会") and _has(items, "武将")
-                and _has(items, "任务")):
-            # 底部功能栏可见但顶部导航（丹青阁/招募）被挡 → 主页被活动
-            # 弹窗遮挡（2026-11-14 麟趾献瑞弹窗事故）。弹窗样式会换、
-            # ✕ 位置不固定 → 动作走候选坐标序列（见 POPUP_CLOSE_POS）
+        if (_has(items, "公会") and _has(items, "好友")
+                and _has(items, "武将") and _has(items, "任务")
+                and not _has(items, "结束挑战")
+                and not _has(items, "开始挑战")):
+            # 主页被活动弹窗遮挡（2026-11-14）：底部功能栏四词齐全 +
+            # 顶部导航（丹青阁/招募）被挡。
+            # ⚠ 排除守卫（2026-11-15 夜局事故）：局内地图页有「结束挑战」、
+            #   入口页有「开始挑战」，且聊天条+图例能凑出公会/武将——
+            #   无排除时地图页被误判 home_popup，在地图上点天空、连 4 步停机。
+            #   活动弹窗只在主页/入口页出现，永不在局内 → 专属词排除足够。
             return "home_popup"
         if _has(items, "开始挑战") and _has(items, "战役属性", "选择武将", "难度选择"):
             return "entry"
