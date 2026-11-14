@@ -454,6 +454,9 @@ class AutoRunner:
             return "purchase_confirm"
         if _has(items, "小铺子") or _has(items, "信物专区"):
             return "shop"
+        if _has(items, "本次登录不再提示"):
+            # 资源更新弹窗（2026-11-14）：入口页弹「本次登录不再提示/确定/取消」
+            return "resource_update"
         if _has(items, "今日登录不再提示") or _has(items, "消耗军令状"):
             # 刷新任务确认弹窗（2026-10-18）：勾选「今日登录不再提示」→确定
             return "refresh_confirm"
@@ -592,6 +595,11 @@ class AutoRunner:
         if state == "resume":
             self._tap(1653, 933, wait=4.0)
             return STATE_OK, "继续挑战（恢复上局）"
+
+        if state == "resource_update":
+            # 资源更新弹窗：点「确定」(817,713)（2026-11-14 实拍标定）
+            self._tap(817, 713, wait=1.5)
+            return STATE_OK, "资源更新弹窗 → 确定"
 
         if state == "home":
             # 复用既有固定坐标导航（home→campaign→qianli，同 run.py enter）

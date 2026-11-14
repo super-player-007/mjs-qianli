@@ -40,6 +40,10 @@ SPEC = [
     # ---- 决策页：锚点判页 + 区域 OCR（2026-11-11，整屏 1.9s -> 0.4s）----
     ("gift1", "gift1.png", (747, 911, 1156, 954), (700, 880, 1200, 980),
      0.9, True, "in_run", (300, 700, 1650, 1000)),
+    # ---- 资源更新弹窗（2026-11-14）：勾选文字带做锚点（唯一性最强），
+    #      动作用固定点「确定」(817,713)。scope=global：局内外都要关 ----
+    ("resource_update", "resource_update.png", (866, 622, 1106, 673),
+     (700, 580, 1300, 720), 0.9, False, "global"),
     # ---- 结算链（区域限定真按钮，替代 0.994 互配消歧）----
     # 2026-11-14：确定按钮有两个 y 变体（完胜页 ≈953 / 败局战绩页 ≈882），
     # 模板重裁自 882 变体（auto_fp_settle_confirm 实拍），区域拉宽覆盖两种
@@ -82,6 +86,7 @@ EXPECT = {
     "refresh_popup.png": "refresh_confirm",
     "settle_settle_confirm.png": "settle_confirm",
     "settle_settle_confirm2.png": "settle_confirm",
+    "resource_update.png": "resource_update",
     "settle_reward_overlay.png": "reward_overlay",
     "settle_run_settle.png": "refresh_confirm",   # 旧皮肤夹具内嵌弹窗，属正确
     "run_settle_new.png": "run_settle",

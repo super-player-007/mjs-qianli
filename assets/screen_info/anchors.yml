@@ -87,6 +87,17 @@
   - 700
   - 1650
   - 1000
+- state: resource_update
+  scope: global
+  needs_ocr: false
+  areas:
+  - anchor: resource_update.png
+    rect:
+    - 700
+    - 580
+    - 1300
+    - 720
+    threshold: 0.9
 - state: settle_confirm
   scope: in_run
   needs_ocr: false
