@@ -98,6 +98,17 @@
     - 1300
     - 720
     threshold: 0.9
+- state: login_page
+  scope: global
+  needs_ocr: false
+  areas:
+  - anchor: login_page.png
+    rect:
+    - 300
+    - 830
+    - 1000
+    - 940
+    threshold: 0.9
 - state: settle_confirm
   scope: in_run
   needs_ocr: false

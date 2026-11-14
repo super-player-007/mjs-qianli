@@ -457,6 +457,9 @@ class AutoRunner:
         if _has(items, "本次登录不再提示"):
             # 资源更新弹窗（2026-11-14）：入口页弹「本次登录不再提示/确定/取消」
             return "resource_update"
+        if _has(items, "点击登录"):
+            # 登录页（2026-11-14）：资源更新完成后出现「点击登录」
+            return "login_page"
         if _has(items, "今日登录不再提示") or _has(items, "消耗军令状"):
             # 刷新任务确认弹窗（2026-10-18）：勾选「今日登录不再提示」→确定
             return "refresh_confirm"
@@ -600,6 +603,19 @@ class AutoRunner:
             # 资源更新弹窗：点「确定」(817,713)（2026-11-14 实拍标定）
             self._tap(817, 713, wait=1.5)
             return STATE_OK, "资源更新弹窗 → 确定"
+
+        if state == "login_page":
+            # 登录页（2026-11-14）：更新完成出现「点击登录」→ 点它进主界面；
+            # 没有则说明还在更新 → 等待（下一步重看）
+            pos = None
+            for it in self._ocr(self._shot(), region=(700, 700, 1250, 860)):
+                if _norm(it.text) == "点击登录":
+                    pos = it.center
+                    break
+            if pos is None:
+                return STATE_OK, "登录页更新中，等待（点击登录未出现）"
+            self._tap(*pos, wait=4.0)      # 点登录 → 进主界面（加载较久）
+            return STATE_OK, "登录页 → 点击登录进主界面"
 
         if state == "home":
             # 复用既有固定坐标导航（home→campaign→qianli，同 run.py enter）

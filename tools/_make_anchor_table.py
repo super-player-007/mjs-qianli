@@ -44,6 +44,11 @@ SPEC = [
     #      动作用固定点「确定」(817,713)。scope=global：局内外都要关 ----
     ("resource_update", "resource_update.png", (866, 622, 1106, 673),
      (700, 580, 1300, 720), 0.9, False, "global"),
+    # ---- 登录页（2026-11-14）：资源更新确定后进登录页，更新完成出现
+    #      「点击登录」。锚点用底部备案号文案带（更新中也在）；动作里
+    #      OCR 定位「点击登录」——有则点登录，没有则等更新 ----
+    ("login_page", "login_page.png", (367, 868, 900, 902),
+     (300, 830, 1000, 940), 0.9, False, "global"),
     # ---- 结算链（区域限定真按钮，替代 0.994 互配消歧）----
     # 2026-11-14：确定按钮有两个 y 变体（完胜页 ≈953 / 败局战绩页 ≈882），
     # 模板重裁自 882 变体（auto_fp_settle_confirm 实拍），区域拉宽覆盖两种
@@ -87,6 +92,7 @@ EXPECT = {
     "settle_settle_confirm.png": "settle_confirm",
     "settle_settle_confirm2.png": "settle_confirm",
     "resource_update.png": "resource_update",
+    "login_page.png": "login_page",
     "settle_reward_overlay.png": "reward_overlay",
     "settle_run_settle.png": "refresh_confirm",   # 旧皮肤夹具内嵌弹窗，属正确
     "run_settle_new.png": "run_settle",
