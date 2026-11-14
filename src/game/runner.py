@@ -387,7 +387,15 @@ class AutoRunner:
                 self._wait_ready(self._anchor_is("settle_confirm"),
                                  timeout=3.0)
             elif kind == "confirm":
-                self._tap(960, 953, wait=0.3)   # 2026-11-12：确定按钮下移到 y≈953
+                # 2026-11-14：确定按钮有两个 y 变体（完胜页 ≈953 / 败局战绩
+                # 页 ≈882）→ 固定点会点空。区域内 OCR 定位「确定」，
+                # 找不到才回落固定点。
+                pos = None
+                for it in self._ocr(img, region=(700, 830, 1250, 1010)):
+                    if _norm(it.text) == "确定":
+                        pos = it.center
+                        break
+                self._tap(*(pos or (960, 953)), wait=0.3)
                 taps.append("确认")
                 break                         # 确认后离开结算链
             else:

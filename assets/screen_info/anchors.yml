@@ -93,9 +93,9 @@
   areas:
   - anchor: settle_confirm.png
     rect:
-    - 850
-    - 880
-    - 1100
+    - 700
+    - 830
+    - 1250
     - 1010
     threshold: 0.9
 - state: reward_overlay

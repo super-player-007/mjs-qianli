@@ -41,8 +41,10 @@ SPEC = [
     ("gift1", "gift1.png", (747, 911, 1156, 954), (700, 880, 1200, 980),
      0.9, True, "in_run", (300, 700, 1650, 1000)),
     # ---- 结算链（区域限定真按钮，替代 0.994 互配消歧）----
-    ("settle_confirm", "settle_settle_confirm.png", (908, 926, 1013, 980),
-     (850, 880, 1100, 1010), 0.9, False, "in_run"),
+    # 2026-11-14：确定按钮有两个 y 变体（完胜页 ≈953 / 败局战绩页 ≈882），
+    # 模板重裁自 882 变体（auto_fp_settle_confirm 实拍），区域拉宽覆盖两种
+    ("settle_confirm", "settle_settle_confirm2.png", (908, 855, 1013, 910),
+     (700, 830, 1250, 1010), 0.9, False, "in_run"),
     ("reward_overlay", "settle_reward_overlay.png", (812, 273, 1105, 361),
      (700, 240, 1200, 420), 0.9, False, "in_run"),
     # 2026-11-12 游戏更新：领取奖励移到底部中央 (876,924)-(1044,960)
@@ -79,6 +81,7 @@ EXPECT = {
     "mulligan.png": "mulligan", "tip_screen.png": "tip_screen",
     "refresh_popup.png": "refresh_confirm",
     "settle_settle_confirm.png": "settle_confirm",
+    "settle_settle_confirm2.png": "settle_confirm",
     "settle_reward_overlay.png": "reward_overlay",
     "settle_run_settle.png": "refresh_confirm",   # 旧皮肤夹具内嵌弹窗，属正确
     "run_settle_new.png": "run_settle",
