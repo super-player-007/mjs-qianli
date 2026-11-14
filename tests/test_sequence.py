@@ -91,7 +91,11 @@ class TestRunSteps(unittest.TestCase):
 
 class TestSettleSequence(unittest.TestCase):
     def test_next_preview_then_confirm(self):
-        """结算序列：next_preview → 点下一步 → settle_confirm → 点确认 → 结束。"""
+        """结算序列：next_preview → 点下一步 → settle_confirm → 点确认 → 结束。
+
+        2026-11-14：确认点击改为区域内 OCR 定位「确定」（双 y 变体）；
+        测试里 OCR 返回空 → 回落固定点 (960,953)，行为与旧版一致。
+        """
         r = make_runner()
         taps = []
         kinds = ["preview", "confirm"]
@@ -100,6 +104,7 @@ class TestSettleSequence(unittest.TestCase):
                           side_effect=lambda im: kinds.pop(0) if kinds else None), \
              patch.object(AutoRunner, "_tap",
                           side_effect=lambda x, y, wait=0: taps.append((x, y))), \
+             patch.object(AutoRunner, "_ocr", return_value=[]), \
              patch.object(AutoRunner, "_wait_ready", return_value=True), \
              patch.object(AutoRunner, "_claim_task_badges", return_value=0), \
              patch("src.game.runner.time.sleep"):
@@ -107,6 +112,24 @@ class TestSettleSequence(unittest.TestCase):
         self.assertEqual(taps, [(958, 953), (960, 953)])
         self.assertIn("下一步", msg)
         self.assertIn("确认", msg)
+
+    def test_confirm_taps_ocr_position(self):
+        """败局战绩页确定在 y≈882 → OCR 定位到实际位置点击。"""
+        r = make_runner()
+        taps = []
+        kinds = ["confirm"]
+        det = type("I", (), {"text": "确定", "center": (960, 882),
+                             "rect": (914, 861, 1007, 904), "score": 1.0})
+        with patch.object(AutoRunner, "_shot", return_value=object()), \
+             patch.object(AutoRunner, "_settle_kind",
+                          side_effect=lambda im: kinds.pop(0) if kinds else None), \
+             patch.object(AutoRunner, "_ocr", return_value=[det]), \
+             patch.object(AutoRunner, "_tap",
+                          side_effect=lambda x, y, wait=0: taps.append((x, y))), \
+             patch.object(AutoRunner, "_claim_task_badges", return_value=0), \
+             patch("src.game.runner.time.sleep"):
+            status, msg = r._settle_sequence()
+        self.assertIn((960, 882), taps, msg=msg)
 
     def test_no_settle_page_breaks(self):
         """不在结算页 → 零点击直接返回。"""
