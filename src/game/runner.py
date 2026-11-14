@@ -65,6 +65,13 @@ TASK_CHECK_INTERVAL = 300
 #: 托管界面顶部「任务」图标（2026-09-25 战斗页 OCR 标定：OCR 将「任务」「设置」
 #: 合并读为 x1585–1772 的盒子，任务图标=左半 → 中心 (1620,150)。
 #: ⚠ 旧值 (1638,187) 偏下 37px（用户窗口截图换算误差），实测点不开任务页）
+#: 主页活动弹窗的 ✕ 候选点击位（弹窗样式会换、位置不固定 →
+#: 每遇新位置就补一条；点击只落在弹窗上，点错无副作用）
+POPUP_CLOSE_POS = (
+    (1475, 292),   # 2026-11-14 麟趾献瑞（双弹窗叠加，两个 ✕）
+    (1552, 280),
+)
+
 TASK_ICON_POS = (1620, 150)
 #: 任务页右上角「返回」按钮（用户截图标定）
 TASK_BACK_POS = (1879, 183)
@@ -512,6 +519,12 @@ class AutoRunner:
         if _has(items, "丹青阁") and _has(items, "招募"):
             # 游戏主页（顶部导航 OCR conf=1.00；卡片艺术字不可靠不用）
             return "home"
+        if (_has(items, "公会") and _has(items, "武将")
+                and _has(items, "任务")):
+            # 底部功能栏可见但顶部导航（丹青阁/招募）被挡 → 主页被活动
+            # 弹窗遮挡（2026-11-14 麟趾献瑞弹窗事故）。弹窗样式会换、
+            # ✕ 位置不固定 → 动作走候选坐标序列（见 POPUP_CLOSE_POS）
+            return "home_popup"
         if _has(items, "开始挑战") and _has(items, "战役属性", "选择武将", "难度选择"):
             return "entry"
         if _has(items, "继续挑战") and _has(items, "战役属性", "难度选择"):
@@ -603,6 +616,9 @@ class AutoRunner:
             # 资源更新弹窗：点「确定」(817,713)（2026-11-14 实拍标定）
             self._tap(817, 713, wait=1.5)
             return STATE_OK, "资源更新弹窗 → 确定"
+
+        if state == "home_popup":
+            return self._act_home_popup()
 
         if state == "login_page":
             # 登录页（2026-11-14）：更新完成出现「点击登录」→ 点它进主界面；
@@ -986,6 +1002,30 @@ class AutoRunner:
     # ---------------------------------------------------- 任务奖励巡检
     #: 任务页右上角军令状数量区域（2026-10-11 用户截图+实机双重标定）
     TASK_TOKEN_REGION = (1620, 100, 1780, 170)
+
+    def _act_home_popup(self) -> Tuple[str, str]:
+        """主页活动弹窗：按候选位依次点 ✕，每点一次探测主页是否露出。
+
+        弹窗样式会换、✕ 位置不固定 → 候选坐标表 POPUP_CLOSE_POS 按实拍
+        逐次积累。连续 4 步仍未关完 → 存图停机（新样式需补候选坐标）。
+        """
+        self._home_popup_streak = getattr(self, "_home_popup_streak", 0) + 1
+        if self._home_popup_streak > 4:
+            self._save(self._shot(), "home_popup_stuck")
+            return STATE_STOP, "主页弹窗连续 4 步未关完（候选坐标用尽），停机"
+        for pos in POPUP_CLOSE_POS:
+            self._tap(*pos, wait=0.5)
+            if self._home_recovered():
+                self._home_popup_streak = 0
+                return STATE_OK, f"主页弹窗已关闭（{pos}）"
+        return (STATE_OK,
+                f"主页弹窗未关完（本轮候选 {len(POPUP_CLOSE_POS)} 个已点完），"
+                "下一步继续")
+
+    def _home_recovered(self) -> bool:
+        """主页顶部导航（丹青阁+招募）是否重新可见 = 弹窗已关完。"""
+        items = self._ocr(self._shot(fresh=True))
+        return _has(items, "丹青阁") and _has(items, "招募")
 
     def _task_tokens_zero(self) -> bool:
         """任务页右上角军令状数量是否为 0。
