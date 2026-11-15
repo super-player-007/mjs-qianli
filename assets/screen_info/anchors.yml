@@ -131,6 +131,13 @@
     - 1200
     - 420
     threshold: 0.9
+  - anchor: reward_overlay_1.png
+    rect:
+    - 700
+    - 730
+    - 1250
+    - 850
+    threshold: 0.9
 - state: run_settle
   scope: in_run
   needs_ocr: false

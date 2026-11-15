@@ -56,6 +56,10 @@ SPEC = [
      (700, 830, 1250, 1010), 0.9, False, "in_run"),
     ("reward_overlay", "settle_reward_overlay.png", (812, 273, 1105, 361),
      (700, 240, 1200, 420), 0.9, False, "in_run"),
+    # 2026-11-15：单标题锚点在入口页低纹理背景上误命中（每新局白花 3×6s）。
+    # 追加底部提示条「点击空白处关闭」做 AND 双确认，入口页没有它。
+    ("reward_overlay", "settle_reward_overlay.png", (828, 770, 1093, 812),
+     (700, 730, 1250, 850), 0.9, False, "in_run"),
     # 2026-11-12 游戏更新：领取奖励移到底部中央 (876,924)-(1044,960)
     ("run_settle", "run_settle_new.png", (870, 918, 1050, 966),
      (700, 860, 1250, 1010), 0.9, False, "in_run"),
@@ -93,6 +97,7 @@ EXPECT = {
     "settle_settle_confirm2.png": "settle_confirm",
     "resource_update.png": "resource_update",
     "login_page.png": "login_page",
+    "entry_page_clean.png": None,   # reward_overlay 误判现场（负样本）
     "settle_reward_overlay.png": "reward_overlay",
     "settle_run_settle.png": "refresh_confirm",   # 旧皮肤夹具内嵌弹窗，属正确
     "run_settle_new.png": "run_settle",
@@ -159,10 +164,13 @@ def main() -> int:
         entries.append(entry)
         print(f"锚点 {state}/{name}: {anchor.shape[1]}x{anchor.shape[0]}")
 
-    # map 的双锚点需要合并进同一 entry（AND），rebuild 一下
+    # 部分状态的相邻条目 = 多区域 AND；其余（如 next_preview 的两个变体）
+    # 是 OR 关系，必须保持独立条目 —— 用白名单显式区分
+    AND_STATES = {"map", "reward_overlay"}
     merged = []
     for e in entries:
-        if e["state"] == "map" and merged and merged[-1]["state"] == "map":
+        if (e["state"] in AND_STATES and merged
+                and merged[-1]["state"] == e["state"]):
             merged[-1]["areas"].extend(e["areas"])
         else:
             merged.append(e)
