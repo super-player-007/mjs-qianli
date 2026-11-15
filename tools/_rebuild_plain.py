@@ -71,18 +71,6 @@ def _close_adb_server() -> None:
     print("adb 服务已关闭，继续构建。")
 
 
-def _close_adb_server() -> None:
-    """adb 服务进程锁着 bin/adb.exe → PyInstaller 清产物必撞 WinError 5。
-
-    2026-11-13 事故（同日第二次产物残缺）。构建不需要 adb；杀掉服务后
-    运行时 ensure_connected 会自动重启重连，模拟器本体不受影响。
-    """
-    if not _tasklist_any(b"adb.exe"):
-        return
-    print("检测到 adb 服务进程（锁 bin/adb.exe），关闭后继续构建…")
-    subprocess.run(["taskkill", "/F", "/IM", "adb.exe"], capture_output=True)
-    time.sleep(2)
-    print("adb 服务已关闭，继续构建。")
 DIST = ROOT / "未加密版"
 APP = DIST / "千里单骑助手"
 WORK = ROOT / "build_work_plain"
@@ -120,6 +108,19 @@ bin_dir.mkdir(exist_ok=True)
 # 模拟器自带 adb 目录由环境变量 LDPLAYER_ADB 指定（不写死本机路径）
 _ld = os.environ.get("LDPLAYER_ADB", "").strip()
 ld = Path(_ld) if _ld else None
+if ld is None or not ld.is_file():
+    # 2026-11-16：未指定环境变量时自动扫常见雷电位置（与 devices/adb.py
+    # 的 _KNOWN_ADB_GLOBS 同款）→ 绿色版自带 adb，换机即用
+    from glob import glob as _glob
+    for _pat in ("D:/leidian/LDPlayer*/adb.exe",
+                 "C:/leidian/LDPlayer*/adb.exe",
+                 "D:/Program Files/leidian/LDPlayer*/adb.exe",
+                 "E:/leidian/LDPlayer*/adb.exe"):
+        _hits = sorted(_glob(_pat))
+        if _hits:
+            ld = Path(_hits[0])
+            print(f"自动发现 adb: {ld}")
+            break
 if ld is not None and ld.is_file():
     shutil.copy2(ld, bin_dir / "adb.exe")
     for dll in ("AdbWinApi.dll", "AdbWinUsbApi.dll"):

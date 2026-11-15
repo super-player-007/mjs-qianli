@@ -54,6 +54,17 @@ def resolve_adb_path(configured: str) -> str:
     * 都没有 → 原样返回（让首次调用抛出明确的"找不到 adb"）。
     """
     if os.path.sep in configured or "/" in configured or "\\" in configured:
+        # 显式/相对路径：优先按当前目录判断；不存在则按程序根目录（冻结感知）
+        # 再试一次——绿色版 settings 写 bin/adb.exe，从任意目录启动都能找到
+        if Path(configured).is_file():
+            return configured
+        try:
+            from src.config import ROOT
+            cand = ROOT / configured
+            if cand.is_file():
+                return str(cand)
+        except Exception:  # noqa: BLE001 — ROOT 不可用时按原样返回
+            pass
         return configured
     found = shutil.which(configured)
     if found:

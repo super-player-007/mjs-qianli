@@ -14,6 +14,7 @@ import subprocess
 import time
 import shutil
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from src.devices.adb import ADBDevice, DeviceError, resolve_adb_path
@@ -174,3 +175,19 @@ class TestResolveAdbPath(unittest.TestCase):
         else:
             self.assertNotEqual(got, "adb", "应回退到常见模拟器安装位置")
             self.assertTrue(os.path.isfile(got), msg=got)
+
+    def test_relative_path_falls_back_to_root(self):
+        """绿色版 settings 写 bin/adb.exe → 从任意目录启动都按 ROOT 解析。"""
+        import tempfile
+        import src.config as C
+        from src.devices import adb as A
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "bin").mkdir()
+        (tmp / "bin" / "adb.exe").write_bytes(b"stub")
+        old = C.ROOT
+        C.ROOT = tmp
+        try:
+            got = A.resolve_adb_path("bin/adb.exe")
+            self.assertTrue(Path(got).is_file(), msg=got)
+        finally:
+            C.ROOT = old
