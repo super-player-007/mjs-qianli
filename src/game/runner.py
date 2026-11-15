@@ -519,7 +519,8 @@ class AutoRunner:
         if _has(items, "丹青阁") and _has(items, "招募"):
             # 游戏主页（顶部导航 OCR conf=1.00；卡片艺术字不可靠不用）
             return "home"
-        if (_has(items, "公会") and _has(items, "好友")
+        if (not self.in_run
+                and _has(items, "公会") and _has(items, "好友")
                 and _has(items, "武将") and _has(items, "任务")
                 and not _has(items, "结束挑战")
                 and not _has(items, "开始挑战")):
@@ -528,7 +529,8 @@ class AutoRunner:
             # ⚠ 排除守卫（2026-11-15 夜局事故）：局内地图页有「结束挑战」、
             #   入口页有「开始挑战」，且聊天条+图例能凑出公会/武将——
             #   无排除时地图页被误判 home_popup，在地图上点天空、连 4 步停机。
-            #   活动弹窗只在主页/入口页出现，永不在局内 → 专属词排除足够。
+            #   活动弹窗只在主页/入口页出现，永不在局内 → 专属词排除 +
+            #   in_run 守卫（2026-11-15 第二夜：局内聊天条凑词仍会偶发误判）。
             return "home_popup"
         if _has(items, "开始挑战") and _has(items, "战役属性", "选择武将", "难度选择"):
             return "entry"
@@ -1014,6 +1016,12 @@ class AutoRunner:
         弹窗样式会换、✕ 位置不固定 → 候选坐标表 POPUP_CLOSE_POS 按实拍
         逐次积累。连续 4 步仍未关完 → 存图停机（新样式需补候选坐标）。
         """
+        # 2026-11-15 第二夜事故：streak 原为跨步累计（32/58/85/103/169 五步
+        # 分散在 137 步里也凑够 4 → 误停机）。改为只认连续步号。
+        last = getattr(self, "_home_popup_last_step", -2)
+        if self.steps - last != 1:
+            self._home_popup_streak = 0
+        self._home_popup_last_step = self.steps
         self._home_popup_streak = getattr(self, "_home_popup_streak", 0) + 1
         if self._home_popup_streak > 4:
             self._save(self._shot(), "home_popup_stuck")

@@ -66,6 +66,23 @@ class TestHomePopup(unittest.TestCase):
                                 _item("招募", 1700, 150)]
         self.assertEqual(r.classify(items), "home")
 
+    def test_in_run_never_home_popup(self):
+        """局内（in_run=True）绝不判 home_popup，即使四词凑齐。"""
+        r = self._runner()
+        r.in_run = True
+        items = _nav_items()
+        self.assertNotEqual(r.classify(items), "home_popup")
+
+    def test_non_consecutive_streak_resets(self):
+        """误判分散在多步里（非连续）→ streak 清零，不会误停机。"""
+        r = self._runner()
+        r._home_popup_streak = 4
+        r._home_popup_last_step = 10   # 当前 steps=0，间隔很远
+        with patch.object(AutoRunner, "_shot", return_value=object()),              patch.object(AutoRunner, "_ocr", return_value=[]),              patch.object(AutoRunner, "_tap"):
+            status, msg = _run_one_step(r)
+        self.assertNotEqual(status, STATE_STOP, msg=msg)
+        self.assertEqual(r._home_popup_streak, 1)
+
     def test_close_candidates_tapped_in_order(self):
         """未恢复 → 按候选顺序点完全部 ✕，等待下一步继续。"""
         r = self._runner()
@@ -102,6 +119,7 @@ class TestHomePopup(unittest.TestCase):
         """连续 4 步未关完 → 第 5 步停机存图。"""
         r = self._runner()
         r._home_popup_streak = 4
+        r._home_popup_last_step = r.steps - 1   # 标记为连续步
         with patch.object(AutoRunner, "_shot", return_value=object()), \
              patch.object(AutoRunner, "_save", return_value=None), \
              patch.object(AutoRunner, "_tap"):
