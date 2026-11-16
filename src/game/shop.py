@@ -99,10 +99,18 @@ def parse_shop(items: Sequence) -> List[Dict]:
             x1, y1, x2, y2 = it.rect
             texts.append((t, (x1 + x2) // 2, (y1 + y2) // 2))
 
+    # 已售罄卡：卡片底部有「已售罄/已售馨」标签，而卡上仍显示划线原价。
+    # 2026-11-17 事故：全屏漏读该价格，但价格带补扫读到了它 → 与名字配成
+    # 「可买」商品 → 每步点同一张售罄卡、没反应、无限循环（连点 8+ 步）。
+    sold_out = [(x2, y2) for t2, x2, y2 in texts
+                if t2.startswith("已售")]   # 罄/馨 OCR 混淆都覆盖
+
     goods: List[Dict] = []
     for t, px, py in texts:
         if not _PRICE_RE.match(t):
             continue
+        if any(abs(sx - px) <= 130 and sy > py for sx, sy in sold_out):
+            continue                    # 同列下方已售罄 → 该价格不可购买
         # 同列（|dx|≤130）且在价格**正上方**的名字里取最靠近价格的。
         # ⚠ 三个坑（2026-09-17 第 6 层实测）：
         #   ① 栏目标题「信物专区」x 恰与中列对齐，会抢名字 → 过滤「专区」；

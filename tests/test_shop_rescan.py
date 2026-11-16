@@ -104,5 +104,57 @@ class TestPriceBandRescan(unittest.TestCase):
         self.assertIn("退出", msg)
 
 
+
+class TestSoldOutExcluded(unittest.TestCase):
+    """2026-11-17 事故：已售罄卡的划线原价被补扫读出 → 每步点售罄卡死循环。"""
+
+    @staticmethod
+    def _item(text, cx, cy):
+        return FakeOCRItem(text, (cx - 40, cy - 16, cx + 40, cy + 16))
+
+    def test_soldout_price_not_parsed(self):
+        items = [
+            self._item("郭嘉", 1064, 772),
+            self._item("57", 1046, 863),      # 划线原价（售罄卡）
+            self._item("已售罄", 1056, 956),
+        ]
+        self.assertEqual(shop.parse_shop(items), [])
+
+    def test_soldout_variant_xin(self):
+        """OCR 把「罄」读成「馨」也覆盖。"""
+        items = [
+            self._item("郭嘉", 1064, 772),
+            self._item("57", 1046, 863),
+            self._item("已售馨", 1056, 956),
+        ]
+        self.assertEqual(shop.parse_shop(items), [])
+
+    def test_normal_price_still_parsed(self):
+        """同列无售罄标签的正常商品不受影响。"""
+        items = [
+            self._item("六国相印", 1367, 272),
+            self._item("24", 1384, 525),
+        ]
+        goods = shop.parse_shop(items)
+        self.assertEqual(len(goods), 1)
+        self.assertEqual(goods[0]["name"], "六国相印")
+
+    def test_real_fixture_exits_shop(self):
+        """实拍（郭嘉已售罄 + 补扫 57）→ 决策应为退出，不购买。"""
+        from pathlib import Path
+        from src.vision.annotate import read_image
+        from src.vision.ocr import OCREngine
+        img = read_image(Path("tests/fixtures/shop_soldout_wupai.png"))
+        ocr = OCREngine(device="auto")
+        items = list(ocr.read(img))
+        for it in ocr.read(img, (900, 850, 1920, 970)):
+            rx1, ry1, rx2, ry2 = it.rect
+            items.append(FakeOCRItem(it.text,
+                                     (rx1 + 900, ry1 + 850, rx2 + 900, ry2 + 850)))
+        g, why = shop.pick_shop_purchase(items, coins=420)
+        self.assertIsNone(g, msg=why)
+        self.assertIn("退出", why)
+
+
 if __name__ == "__main__":
     unittest.main()

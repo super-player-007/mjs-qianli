@@ -166,6 +166,10 @@ class AutoRunner:
         self.expect_event_confirm = False
         #: 连续 unknown 帧计数（过渡/未知界面容忍，2026-09-24/25 事故演进）
         self._unknown_streak = 0
+        #: 商店重复购买防护（2026-11-17 售罄卡事故）：记录上次买的
+        #: (商品名, 价格, 余额)；三者连续不变 = 点了没生效 → 强制退出
+        self._shop_last_buy: Optional[tuple] = None
+        self._shop_repeat = 0
         #: 上次任务奖励巡检时间（累计 10 分钟触发一次，用户 2026-09-25 需求）
         self._last_task_check = time.time()
         self.shot_dir = getattr(getattr(ctx, "cfg", None), "shot_dir",
@@ -1239,9 +1243,27 @@ class AutoRunner:
                 if goods2 is not None:
                     goods, why = goods2, why2 + "（价格带补扫）"
         if goods is None:
+            self._shop_last_buy = None
+            self._shop_repeat = 0
             self.log.info("商店: %s", why)
             self._tap(1845, 127, wait=2.0)     # 金盘 → 触发结束购买
             return STATE_OK, "商店不买，退出"
+        # 兜底防死循环：同名同价、余额不变的连续购买 = 点击没生效
+        # （售罄卡/弹窗遮挡/坐标漂移都可能造成），连 3 次强制退出
+        key = (goods["name"], goods["price"], coins)
+        if key == self._shop_last_buy:
+            self._shop_repeat += 1
+        else:
+            self._shop_last_buy = key
+            self._shop_repeat = 1
+        if self._shop_repeat >= 3:
+            self._shop_last_buy = None
+            self._shop_repeat = 0
+            self.log.warning(
+                "商店: 「%s」连续 3 次购买但余额未变 → 判定点击未生效，强制退出",
+                goods["name"])
+            self._tap(1845, 127, wait=2.0)
+            return STATE_OK, "商店购买无进展 → 强制退出"
         self.log.info("商店: %s（%s）", goods["name"], why)
         self._tap(*goods["click"], wait=2.5)
         return STATE_OK, f"购买 {goods['name']}（{why}）"
