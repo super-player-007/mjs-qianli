@@ -109,16 +109,12 @@ bin_dir.mkdir(exist_ok=True)
 _ld = os.environ.get("LDPLAYER_ADB", "").strip()
 ld = Path(_ld) if _ld else None
 if ld is None or not ld.is_file():
-    # 2026-11-16：未指定环境变量时自动扫常见雷电位置（与 devices/adb.py
-    # 的 _KNOWN_ADB_GLOBS 同款）→ 绿色版自带 adb，换机即用
-    from glob import glob as _glob
-    for _pat in ("D:/leidian/LDPlayer*/adb.exe",
-                 "C:/leidian/LDPlayer*/adb.exe",
-                 "D:/Program Files/leidian/LDPlayer*/adb.exe",
-                 "E:/leidian/LDPlayer*/adb.exe"):
-        _hits = sorted(_glob(_pat))
-        if _hits:
-            ld = Path(_hits[0])
+    # 2026-11-16：未指定环境变量时自动扫模拟器安装目录
+    # （复用 devices/adb.py 的运行时发现，不写死本机路径）
+    from src.devices.adb import _fallback_adb_candidates
+    for _cand in _fallback_adb_candidates():
+        if Path(_cand).is_file():
+            ld = Path(_cand)
             print(f"自动发现 adb: {ld}")
             break
 if ld is not None and ld.is_file():

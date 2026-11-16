@@ -37,13 +37,34 @@ class DeviceError(RuntimeError):
     """adb 交互失败。"""
 
 
-#: 常见雷电模拟器安装位置（裸名 "adb" 不在 PATH 时的自动回退）
-_KNOWN_ADB_GLOBS = (
-    "D:/leidian/LDPlayer*/adb.exe",
-    "C:/leidian/LDPlayer*/adb.exe",
-    "D:/Program Files/leidian/LDPlayer*/adb.exe",
-    "E:/leidian/LDPlayer*/adb.exe",
-)
+#: 裸名 "adb" 不在 PATH 时的回退来源（2026-11-16 脱敏改造）：
+#: 环境变量指定，或运行时扫各盘符下的模拟器安装目录。
+#: 注意——**不要**在这里写死本机路径（AGENTS 第八节红线），盘符和目录名
+#: 一律运行时拼，换机器/换盘符都能用。
+_ADB_ENV_VARS = ("MJS_ADB", "LDPLAYER_ADB")
+_ADB_VENDOR_DIRS = ("leidian",)
+_ADB_PARENT_DIRS = ("", "Program Files", "Program Files (x86)")
+
+
+def _fallback_adb_candidates() -> List[str]:
+    """收集 adb 回退候选：环境变量优先，其次扫各盘符的模拟器目录。"""
+    out: List[str] = []
+    for env in _ADB_ENV_VARS:
+        val = os.environ.get(env, "").strip()
+        if val:
+            out.append(val)
+    if not _IS_WIN:
+        return out
+    for letter in "CDEFGHIJ":
+        root = letter + ":\\"
+        if not os.path.isdir(root):
+            continue
+        for sub in _ADB_PARENT_DIRS:
+            base = os.path.join(root, sub) if sub else root
+            for vendor in _ADB_VENDOR_DIRS:
+                out.extend(sorted(glob.glob(
+                    os.path.join(base, vendor, "LDPlayer*", "adb.exe"))))
+    return out
 
 
 def resolve_adb_path(configured: str) -> str:
@@ -69,10 +90,9 @@ def resolve_adb_path(configured: str) -> str:
     found = shutil.which(configured)
     if found:
         return found
-    for pattern in _KNOWN_ADB_GLOBS:
-        hits = sorted(glob.glob(pattern))
-        if hits:
-            return hits[0]
+    for cand in _fallback_adb_candidates():
+        if Path(cand).is_file():
+            return cand
     return configured
 
 

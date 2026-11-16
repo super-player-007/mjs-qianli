@@ -156,12 +156,12 @@ if __name__ == "__main__":
     unittest.main()
 
 class TestResolveAdbPath(unittest.TestCase):
-    """新版 settings 默认 adb_path="adb"（走 PATH）→ 需自动回退雷电位置。"""
+    """新版 settings 默认 adb_path="adb"（走 PATH）→ 需自动回退模拟器目录。"""
 
     def test_explicit_path_untouched(self):
         from src.devices.adb import resolve_adb_path
-        self.assertEqual(resolve_adb_path("D:/leidian/LDPlayer9/adb.exe"),
-                         "D:/leidian/LDPlayer9/adb.exe")
+        self.assertEqual(resolve_adb_path("C:/tools/android/adb.exe"),
+                         "C:/tools/android/adb.exe")
         self.assertEqual(resolve_adb_path("C:/no/such/adb.exe"),
                          "C:/no/such/adb.exe")
 
