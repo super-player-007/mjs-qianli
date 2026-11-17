@@ -189,12 +189,13 @@ class TestSelectNode(unittest.TestCase):
         n.label = NODE_LABELS.get(kind, "未知")
         return n
 
-    def test_rest_beats_shop(self):
-        # 第 3 层实测：商店/休息/商店 → 选休息（中间那个）
-        nodes = [self._node("shop", 0), self._node("rest", 1), self._node("shop", 2)]
+    def test_shop_beats_rest(self):
+        # 2026-11-17 用户定策：商店 > 休息（先买装备再回血）
+        # 第 3 层实测：休息/商店/休息 → 应选商店（中间那个）
+        nodes = [self._node("rest", 0), self._node("shop", 1), self._node("rest", 2)]
         hit, reason = select_node(nodes)
         self.assertIs(hit, nodes[1])
-        self.assertIn("休息", reason)
+        self.assertIn("商店", reason)
 
     def test_all_battle_pick_last(self):
         # 3 节点全战斗 → 固定选最后一个（第三个）
@@ -218,9 +219,11 @@ class TestSelectNode(unittest.TestCase):
 
     def test_type_fallback_when_no_event(self):
         """优先级条目为类型 key 时按 kind 匹配（夹具节点常无 event）。"""
-        nodes = [self._node("shop", 0), self._node("rest", 1), self._node("shop", 2)]
-        hit, _ = select_node(nodes)
+        # 2026-11-17 起商店优先于休息，所以命中中间那个商店
+        nodes = [self._node("rest", 0), self._node("shop", 1), self._node("rest", 2)]
+        hit, reason = select_node(nodes)
         self.assertIs(hit, nodes[1])
+        self.assertIn("商店", reason)
 
     def test_event_type_lowest_priority(self):
         """事件节点排最末：商店在场的场合优先商店。"""
